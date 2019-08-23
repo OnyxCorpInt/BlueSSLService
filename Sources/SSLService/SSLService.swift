@@ -150,6 +150,9 @@ public class SSLService: SSLServiceDelegate {
         
         /// True if isServer == false and the client accepts self-signed certificates. Defaults to false, be careful to not leave as true in production
         public private(set) var clientAllowsSelfSignedCertificates = false
+        
+        /// Makes client pass `hostname` upon SSLHandshake to perform Server Name Indication
+        public var forceSNI = true
 		
 		#if os(Linux)
 			/// Cipher suites to use. Defaults to `DEFAULT:!DH`
@@ -187,8 +190,9 @@ public class SSLService: SSLServiceDelegate {
 		///
 		///	- Returns:	New Configuration instance.
 		///
-		public init(withCipherSuite cipherSuite: String? = nil, clientAllowsSelfSignedCertificates: Bool = true) {
+        public init(withCipherSuite cipherSuite: String? = nil, clientAllowsSelfSignedCertificates: Bool = true, forceSNI: Bool = true) {
 			
+            self.forceSNI = forceSNI
 			self.noBackingCertificates = true
 			self.clientAllowsSelfSignedCertificates = clientAllowsSelfSignedCertificates
 			if cipherSuite != nil {
@@ -1220,6 +1224,9 @@ public class SSLService: SSLServiceDelegate {
             SSLSetSessionOption(sslContext, .breakOnServerAuth, true)
         }
 
+        if isServer == false && configuration.forceSNI == true {
+            socket.remoteHostname.withCString { SSLSetPeerDomainName(sslContext, $0, strlen($0)); return }
+        }
 		
 		// Start and repeat the handshake process until it either completes or fails...
 		repeat {
